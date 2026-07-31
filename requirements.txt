@@ -1,0 +1,4 @@
+Django==5.0.14
+djangorestframework==3.17.1
+django-environ==0.14.0
+psycopg2-binary==2.9.12
