@@ -1,7 +1,13 @@
 from decimal import Decimal
 from unittest import TestCase
 
+from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
+
+from groups.models import Group
 from settlements.services import simplify_debts
+
+from .models import Settlement
 
 
 class SimplifyDebtsTests(TestCase):
@@ -69,3 +75,39 @@ class SimplifyDebtsTests(TestCase):
         transactions = simplify_debts(balances)
         self.assertEqual(len(transactions), 2)
         self.assert_settles_to_zero(balances, transactions)
+
+
+class SettlementViewSetTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice", password="x")
+        self.other = User.objects.create_user("bob", password="x")
+        self.group = Group.objects.create(name="trip")
+        self.group.members.add(self.user, self.other)
+        self.client.force_authenticate(self.user)
+
+    def test_create_settlement(self):
+        response = self.client.post(
+            "/api/settlements/",
+            {
+                "group": self.group.id,
+                "from_user": self.other.id,
+                "to_user": self.user.id,
+                "amount": "10.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Settlement.objects.count(), 1)
+
+    def test_rejects_settlement_from_user_to_self(self):
+        response = self.client.post(
+            "/api/settlements/",
+            {
+                "group": self.group.id,
+                "from_user": self.user.id,
+                "to_user": self.user.id,
+                "amount": "10.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
