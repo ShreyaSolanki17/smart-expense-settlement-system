@@ -79,13 +79,26 @@ class SimplifyDebtsTests(TestCase):
 
 class SettlementViewSetTests(APITestCase):
     def setUp(self):
+        from expenses.models import Expense, ExpenseSplit
+
         self.user = User.objects.create_user("alice", password="x")
         self.other = User.objects.create_user("bob", password="x")
         self.group = Group.objects.create(name="trip")
         self.group.members.add(self.user, self.other)
         self.client.force_authenticate(self.user)
 
-    def test_create_settlement(self):
+        # alice pays 20.00, split evenly -> bob (self.other) owes alice 10.00
+        expense = Expense.objects.create(
+            group=self.group, description="dinner", amount=Decimal("20.00"), paid_by=self.user
+        )
+        ExpenseSplit.objects.bulk_create(
+            [
+                ExpenseSplit(expense=expense, user=self.user, share_amount=Decimal("10.00")),
+                ExpenseSplit(expense=expense, user=self.other, share_amount=Decimal("10.00")),
+            ]
+        )
+
+    def test_create_settlement_within_amount_owed(self):
         response = self.client.post(
             "/api/settlements/",
             {
@@ -98,6 +111,32 @@ class SettlementViewSetTests(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Settlement.objects.count(), 1)
+
+    def test_rejects_settlement_exceeding_amount_owed(self):
+        response = self.client.post(
+            "/api/settlements/",
+            {
+                "group": self.group.id,
+                "from_user": self.other.id,
+                "to_user": self.user.id,
+                "amount": "10.01",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_settlement_from_user_who_owes_nothing(self):
+        response = self.client.post(
+            "/api/settlements/",
+            {
+                "group": self.group.id,
+                "from_user": self.user.id,
+                "to_user": self.other.id,
+                "amount": "0.01",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_rejects_settlement_from_user_to_self(self):
         response = self.client.post(
