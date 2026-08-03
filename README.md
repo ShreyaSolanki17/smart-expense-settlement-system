@@ -7,6 +7,16 @@ transactions.
 ## Stack
 Django, Django REST Framework, PostgreSQL, Redis, Celery, pytest.
 
+## Setup
+
+`.env` holds secrets only (`DEBUG`, `DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`) —
+the same file works for both paths below, since Postgres/Redis URLs are set
+directly in `docker-compose.yml` rather than `.env`.
+
+```bash
+cp .env.example .env
+```
+
 ## Local development
 
 Runs on sqlite, no Postgres/Redis required (Celery notifications will no-op
@@ -31,7 +41,6 @@ pytest
 Full stack (Postgres, Redis, web, Celery worker):
 
 ```bash
-cp .env.example .env
 docker compose up --build
 ```
 
