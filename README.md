@@ -9,18 +9,29 @@ Django, Django REST Framework, PostgreSQL, Redis, Celery, pytest.
 
 ## Local development
 
+Runs on sqlite, no Postgres/Redis required (Celery notifications will no-op
+without a broker):
+
 ```bash
 python -m venv .venv
 .venv/Scripts/activate  # Windows
 pip install -r requirements.txt
-cp .env.example .env
 python manage.py migrate
 python manage.py runserver
 ```
 
-## Docker
+## Testing
 
 ```bash
+pytest
+```
+
+## Docker
+
+Full stack (Postgres, Redis, web, Celery worker):
+
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
