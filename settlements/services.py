@@ -11,9 +11,18 @@ from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, Hashable, List, NamedTuple
 
+from django.core.cache import cache
 from django.db.models import Sum
 
 TWO_PLACES = Decimal("0.01")
+
+
+def balances_cache_key(group_id) -> str:
+    return f"group-balances:{group_id}"
+
+
+def invalidate_balances_cache(group_id) -> None:
+    cache.delete(balances_cache_key(group_id))
 
 
 class Transaction(NamedTuple):

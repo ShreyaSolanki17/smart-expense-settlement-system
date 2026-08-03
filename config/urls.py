@@ -5,12 +5,14 @@ from rest_framework.routers import DefaultRouter
 
 from expenses.views import ExpenseViewSet
 from groups.views import GroupViewSet, demo_login, me, register, search_users
+from notifications.views import NotificationViewSet
 from settlements.views import SettlementViewSet
 
 router = DefaultRouter()
 router.register("groups", GroupViewSet, basename="group")
 router.register("expenses", ExpenseViewSet, basename="expense")
 router.register("settlements", SettlementViewSet, basename="settlement")
+router.register("notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

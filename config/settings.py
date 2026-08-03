@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "groups",
     "expenses",
     "settlements",
+    "notifications",
 ]
 
 MIDDLEWARE = [
