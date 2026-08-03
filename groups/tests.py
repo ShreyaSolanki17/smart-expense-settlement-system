@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth.models import User
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from expenses.models import Expense, ExpenseSplit
@@ -59,3 +60,30 @@ class GroupViewSetTests(APITestCase):
         response = self.client.get(f"/api/groups/{group.id}/balances/")
 
         self.assertEqual(response.status_code, 404)
+
+    @override_settings(
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+    )
+    def test_balances_cache_is_invalidated_by_a_new_expense(self):
+        # Uses a real (local-memory) cache backend instead of the default
+        # django-redis one, so a cache hit/miss actually happens here —
+        # with no Redis reachable, IGNORE_EXCEPTIONS makes every cache call
+        # a silent no-op, which would let a broken invalidation slip
+        # through unnoticed.
+        group = Group.objects.create(name="trip")
+        group.members.add(self.user, self.other)
+
+        empty = self.client.get(f"/api/groups/{group.id}/balances/")
+        self.assertEqual(empty.data, [])
+
+        created = self.client.post(
+            "/api/expenses/",
+            {"group": group.id, "description": "dinner", "amount": "30.00", "paid_by": self.user.id},
+        )
+        self.assertEqual(created.status_code, 201)
+
+        after = self.client.get(f"/api/groups/{group.id}/balances/")
+        self.assertEqual(
+            after.data,
+            [{"from_user": self.other.id, "to_user": self.user.id, "amount": "15.00"}],
+        )
