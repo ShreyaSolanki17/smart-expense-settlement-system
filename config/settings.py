@@ -108,6 +108,39 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"]
-)
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+# Any localhost/127.0.0.1 port: Vite bumps ports when one's taken, and no
+# remote origin can spoof a browser into sending Origin: http://localhost:*.
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^http://(localhost|127\.0\.0\.1):\d+$"]
+
+REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+# ponytail: fail fast (no retry backoff, short connect timeout) when
+# *publishing* a task — notify_members is fire-and-forget, so a hung
+# retry/timeout loop in the request/response cycle is pure waste.
+# broker_connection_retry stays True (the default) since it also gates the
+# worker's own startup retry — disabling it made the worker give up and
+# exit instead of waiting for Redis to come up.
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_TIMEOUT = 1
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 1, "socket_timeout": 1}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # ponytail: Redis may not be running in dev/CI; degrade to a
+            # no-op cache instead of 500ing (or hanging) every request that
+            # touches it.
+            "IGNORE_EXCEPTIONS": True,
+            "CONNECTION_POOL_KWARGS": {"socket_connect_timeout": 1, "socket_timeout": 1},
+        },
+    }
+}

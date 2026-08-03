@@ -4,3 +4,6 @@ django-environ==0.14.0
 django-filter==24.3
 django-cors-headers==4.9.0
 psycopg2-binary==2.9.12
+celery==5.4.0
+redis==5.0.8
+django-redis==5.4.0
