@@ -139,6 +139,59 @@ aside {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+}
+
+.notifications {
+  position: relative;
+}
+
+.bell {
+  position: relative;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  padding: 4px 8px;
+}
+
+.bell .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--error);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+.notification-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 260px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 2;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notification-list li {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.notification-list li.read {
+  opacity: 0.5;
+}
+
+.notification-list li:hover {
+  background: var(--bg-alt);
 }
 
 main {

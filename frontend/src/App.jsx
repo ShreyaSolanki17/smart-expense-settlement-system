@@ -303,6 +303,50 @@ function GroupDetail({ token, group }) {
   )
 }
 
+function Notifications({ token }) {
+  const [items, setItems] = useState([])
+  const [open, setOpen] = useState(false)
+
+  function load() {
+    api
+      .listNotifications(token)
+      .then((data) => setItems(data.results ?? data))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 15000)
+    return () => clearInterval(timer)
+  }, [token])
+
+  async function markRead(notification) {
+    if (notification.read) return
+    await api.markNotificationRead(token, notification.id)
+    load()
+  }
+
+  const unread = items.filter((n) => !n.read).length
+
+  return (
+    <div className="notifications">
+      <button className="bell" onClick={() => setOpen((o) => !o)}>
+        🔔{unread > 0 && <span className="badge">{unread}</span>}
+      </button>
+      {open && (
+        <ul className="notification-list">
+          {items.length === 0 && <li className="muted">No notifications.</li>}
+          {items.map((n) => (
+            <li key={n.id} className={n.read ? "read" : "unread"} onClick={() => markRead(n)}>
+              {n.message}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function Dashboard({ token, user, onLogout }) {
   const [groups, setGroups] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -320,6 +364,7 @@ function Dashboard({ token, user, onLogout }) {
       <aside>
         <div className="user-bar">
           <span>{user?.username}</span>
+          <Notifications token={token} />
           <button className="link" onClick={onLogout}>
             Log out
           </button>

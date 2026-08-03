@@ -40,4 +40,8 @@ export const api = {
       token,
       body: { group, from_user, to_user, amount },
     }),
+
+  listNotifications: (token) => request("/notifications/", { token }),
+  markNotificationRead: (token, id) =>
+    request(`/notifications/${id}/mark_read/`, { method: "POST", token }),
 };
