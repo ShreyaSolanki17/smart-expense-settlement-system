@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from rest_framework import viewsets
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -12,6 +13,15 @@ from .models import Group
 from .serializers import GroupSerializer, UserSerializer
 
 
+_auth_response = inline_serializer(
+    "AuthResponse", {"token": serializers.CharField(), "user": UserSerializer()}
+)
+
+
+@extend_schema(
+    request=inline_serializer("RegisterRequest", {"username": serializers.CharField(), "password": serializers.CharField()}),
+    responses={201: _auth_response},
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register(request):
@@ -31,6 +41,7 @@ DEMO_USERNAME = "demo"
 DEMO_PASSWORD = "demo1234"
 
 
+@extend_schema(request=None, responses={200: _auth_response})
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def demo_login(request):
@@ -81,11 +92,13 @@ def _seed_demo_data(user):
     )
 
 
+@extend_schema(responses={200: UserSerializer})
 @api_view(["GET"])
 def me(request):
     return Response(UserSerializer(request.user).data)
 
 
+@extend_schema(responses={200: UserSerializer(many=True)})
 @api_view(["GET"])
 def search_users(request):
     query = request.query_params.get("q", "").strip()
@@ -99,6 +112,8 @@ class GroupViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Group.objects.none()
         return Group.objects.filter(members=self.request.user).distinct()
 
     def perform_create(self, serializer):

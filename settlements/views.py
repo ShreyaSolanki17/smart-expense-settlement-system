@@ -18,6 +18,8 @@ class SettlementViewSet(viewsets.ModelViewSet):
     filterset_fields = ["group", "from_user", "to_user"]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Settlement.objects.none()
         return Settlement.objects.filter(group__members=self.request.user).distinct()
 
     def perform_create(self, serializer):

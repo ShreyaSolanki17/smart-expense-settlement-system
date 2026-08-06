@@ -30,6 +30,10 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+## API docs
+
+Swagger UI at `/api/docs/`, Redoc at `/api/redoc/`, raw OpenAPI schema at `/api/schema/`.
+
 ## Testing
 
 ```bash

@@ -18,6 +18,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     filterset_fields = ["group", "paid_by"]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Expense.objects.none()
         return Expense.objects.filter(group__members=self.request.user).distinct()
 
     def perform_create(self, serializer):
