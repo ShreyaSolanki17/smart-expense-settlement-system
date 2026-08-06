@@ -1,0 +1,51 @@
+# ponytail: single-replica Deployment+PVC, not a StatefulSet — one DB
+# instance for local dev doesn't need ordinal identity. Swap to a managed
+# Postgres (RDS/Cloud SQL) instead of running this in-cluster for prod.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: postgres}
+  strategy: {type: Recreate}
+  template:
+    metadata:
+      labels: {app: postgres}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{containerPort: 5432}]
+          env:
+            - {name: POSTGRES_DB, value: money_split}
+            - {name: POSTGRES_USER, value: postgres}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: money-split-secrets, key: POSTGRES_PASSWORD}}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "postgres"]}
+            initialDelaySeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: postgres-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector: {app: postgres}
+  ports: [{port: 5432}]
