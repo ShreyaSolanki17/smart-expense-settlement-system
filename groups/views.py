@@ -1,5 +1,4 @@
 from django.contrib.auth.models import User
-from django.core.cache import cache
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.authtoken.models import Token
@@ -7,7 +6,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from settlements.services import balances_cache_key, compute_balances, simplify_debts
+from settlements.services import get_group_balances
 
 from .models import Group
 from .serializers import GroupSerializer, UserSerializer
@@ -123,13 +122,4 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def balances(self, request, pk=None):
         group = self.get_object()
-        cache_key = balances_cache_key(group.id)
-        data = cache.get(cache_key)
-        if data is None:
-            transactions = simplify_debts(compute_balances(group))
-            data = [
-                {"from_user": t.from_user, "to_user": t.to_user, "amount": str(t.amount)}
-                for t in transactions
-            ]
-            cache.set(cache_key, data, 300)
-        return Response(data)
+        return Response(get_group_balances(group))

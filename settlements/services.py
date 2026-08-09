@@ -76,6 +76,23 @@ def simplify_debts(balances: Dict[Hashable, Decimal]) -> List[Transaction]:
     return transactions
 
 
+def get_group_balances(group) -> List[dict]:
+    """Cached, simplified settle-up transactions for `group` as plain dicts
+    (from_user/to_user/amount), the shape both the REST and GraphQL APIs
+    return.
+    """
+    cache_key = balances_cache_key(group.id)
+    data = cache.get(cache_key)
+    if data is None:
+        transactions = simplify_debts(compute_balances(group))
+        data = [
+            {"from_user": t.from_user, "to_user": t.to_user, "amount": str(t.amount)}
+            for t in transactions
+        ]
+        cache.set(cache_key, data, 300)
+    return data
+
+
 def compute_balances(group) -> Dict[int, Decimal]:
     """Net balance per member of `group`: positive = owed money, negative =
     owes money. Derived from what each member paid vs. their expense splits,
