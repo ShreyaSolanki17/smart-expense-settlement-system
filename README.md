@@ -5,7 +5,7 @@ debts with a min-cash-flow algorithm to minimize the number of settlement
 transactions.
 
 ## Stack
-Django, Django REST Framework, PostgreSQL, Redis, Celery, pytest.
+Django, Django REST Framework, GraphQL (graphene-django), PostgreSQL, Redis, Celery, pytest.
 
 ## Setup
 
@@ -33,6 +33,29 @@ python manage.py runserver
 ## API docs
 
 Swagger UI at `/api/docs/`, Redoc at `/api/redoc/`, raw OpenAPI schema at `/api/schema/`.
+
+## GraphQL API
+
+Alongside REST, `/graphql/` exposes the same domain through GraphQL (GraphiQL
+browser enabled in dev) — added to demonstrate schema design on top of an
+existing DRF app, reusing its serializers for mutation validation rather than
+duplicating the rules. Same token auth as REST: `Authorization: Token <key>`.
+
+The frontend's group-detail screen uses it end-to-end: one query replaces
+what used to be two REST round trips (expenses + balances), and
+create-expense/create-settlement are GraphQL mutations.
+
+```graphql
+query {
+  groups { id name }
+}
+
+mutation {
+  createExpense(group: 1, description: "lunch", amount: "12.00", paidBy: 3) {
+    expense { id }
+  }
+}
+```
 
 ## Testing
 
