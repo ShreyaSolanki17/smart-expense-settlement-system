@@ -4,8 +4,9 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from expenses.models import Expense
+from expenses.models import Expense, ExpenseSplit
 from groups.models import Group
+from settlements.models import Settlement
 
 
 class GraphQLSmokeTests(TestCase):
@@ -75,3 +76,54 @@ class GraphQLSmokeTests(TestCase):
         response = self.query(mutation, {"group": outsider_group.id, "paidBy": self.user.id})
 
         self.assertIn("errors", response.json())
+
+    def test_group_detail_query_shape_matches_frontend(self):
+        """Guards the exact query frontend/src/graphql.js sends — same shape
+        used to need two REST calls (listExpenses + getBalances)."""
+        expense = Expense.objects.create(
+            group=self.group, description="dinner", amount=Decimal("20.00"), paid_by=self.user
+        )
+        ExpenseSplit.objects.create(expense=expense, user=self.user, share_amount=Decimal("10.00"))
+        ExpenseSplit.objects.create(expense=expense, user=self.other, share_amount=Decimal("10.00"))
+        self.client.force_login(self.user)
+        query = """
+        query GroupDetail($groupId: ID!) {
+          expenses(groupId: $groupId) { id description amount paidBy { username } }
+          balances(groupId: $groupId) { fromUser toUser amount }
+        }
+        """
+
+        response = self.query(query, {"groupId": self.group.id})
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertNotIn("errors", body)
+        self.assertEqual(body["data"]["expenses"][0]["paidBy"]["username"], "alice")
+
+    def test_create_settlement_mutation_matches_frontend_shape(self):
+        """Guards the exact mutation frontend/src/graphql.js sends for
+        AddExpense's settle button (was api.createSettlement over REST)."""
+        expense = Expense.objects.create(
+            group=self.group, description="dinner", amount=Decimal("20.00"), paid_by=self.user
+        )
+        ExpenseSplit.objects.create(expense=expense, user=self.user, share_amount=Decimal("0.00"))
+        ExpenseSplit.objects.create(expense=expense, user=self.other, share_amount=Decimal("20.00"))
+        self.client.force_login(self.user)
+        mutation = """
+        mutation CreateSettlement($group: ID!, $fromUser: ID!, $toUser: ID!, $amount: Decimal!) {
+          createSettlement(group: $group, fromUser: $fromUser, toUser: $toUser, amount: $amount) {
+            settlement { id }
+          }
+        }
+        """
+
+        response = self.query(
+            mutation,
+            {"group": self.group.id, "fromUser": self.other.id, "toUser": self.user.id, "amount": "20.00"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertNotIn("errors", body)
+        settlement_id = body["data"]["createSettlement"]["settlement"]["id"]
+        self.assertTrue(Settlement.objects.filter(id=settlement_id, amount=Decimal("20.00")).exists())

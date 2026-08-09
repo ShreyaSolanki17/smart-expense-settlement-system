@@ -29,18 +29,6 @@ export const api = {
   createGroup: (token, name, memberIds) =>
     request("/groups/", { method: "POST", token, body: { name, member_ids: memberIds } }),
 
-  listExpenses: (token, groupId) => request(`/expenses/?group=${groupId}`, { token }),
-  createExpense: (token, { group, description, amount, paid_by }) =>
-    request("/expenses/", { method: "POST", token, body: { group, description, amount, paid_by } }),
-
-  getBalances: (token, groupId) => request(`/groups/${groupId}/balances/`, { token }),
-  createSettlement: (token, { group, from_user, to_user, amount }) =>
-    request("/settlements/", {
-      method: "POST",
-      token,
-      body: { group, from_user, to_user, amount },
-    }),
-
   listNotifications: (token) => request("/notifications/", { token }),
   markNotificationRead: (token, id) =>
     request(`/notifications/${id}/mark_read/`, { method: "POST", token }),

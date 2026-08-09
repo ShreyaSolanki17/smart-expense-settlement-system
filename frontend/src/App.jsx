@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
+import { graphqlApi } from './graphql'
 
 function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
@@ -165,7 +166,7 @@ function AddExpense({ token, group, onAdded }) {
     e.preventDefault()
     setError('')
     try {
-      await api.createExpense(token, {
+      await graphqlApi.createExpense(token, {
         group: group.id,
         description,
         amount,
@@ -209,8 +210,7 @@ function AddExpense({ token, group, onAdded }) {
   )
 }
 
-function Balances({ token, group, refreshKey }) {
-  const [transactions, setTransactions] = useState([])
+function Balances({ token, group, transactions, onSettled }) {
   const [error, setError] = useState('')
   const [settling, setSettling] = useState(null)
 
@@ -218,26 +218,17 @@ function Balances({ token, group, refreshKey }) {
     return group.members.find((m) => m.id === id)?.username ?? id
   }
 
-  function load() {
-    api
-      .getBalances(token, group.id)
-      .then(setTransactions)
-      .catch((err) => setError(err.message))
-  }
-
-  useEffect(load, [token, group.id, refreshKey])
-
   async function settle(t) {
-    setSettling(`${t.from_user}-${t.to_user}`)
+    setSettling(`${t.fromUser}-${t.toUser}`)
     setError('')
     try {
-      await api.createSettlement(token, {
+      await graphqlApi.createSettlement(token, {
         group: group.id,
-        from_user: t.from_user,
-        to_user: t.to_user,
+        from_user: t.fromUser,
+        to_user: t.toUser,
         amount: t.amount,
       })
-      load()
+      onSettled()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -251,10 +242,10 @@ function Balances({ token, group, refreshKey }) {
       {transactions.length === 0 && <p className="muted">Everyone's settled up.</p>}
       <ul>
         {transactions.map((t) => (
-          <li key={`${t.from_user}-${t.to_user}`}>
-            {memberName(t.from_user)} owes {memberName(t.to_user)} ${t.amount}
+          <li key={`${t.fromUser}-${t.toUser}`}>
+            {memberName(t.fromUser)} owes {memberName(t.toUser)} ${t.amount}
             <button
-              disabled={settling === `${t.from_user}-${t.to_user}`}
+              disabled={settling === `${t.fromUser}-${t.toUser}`}
               onClick={() => settle(t)}
             >
               Mark settled
@@ -269,36 +260,40 @@ function Balances({ token, group, refreshKey }) {
 
 function GroupDetail({ token, group }) {
   const [expenses, setExpenses] = useState([])
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [balances, setBalances] = useState([])
+  const [error, setError] = useState('')
 
-  function loadExpenses() {
-    api.listExpenses(token, group.id).then((data) => setExpenses(data.results ?? data))
+  // Was listExpenses() + getBalances() — one GraphQL query now covers both.
+  function load() {
+    graphqlApi
+      .groupDetail(token, group.id)
+      .then((data) => {
+        setExpenses(data.expenses)
+        setBalances(data.balances)
+      })
+      .catch((err) => setError(err.message))
   }
 
-  useEffect(loadExpenses, [token, group.id])
-
-  function refresh() {
-    loadExpenses()
-    setRefreshKey((k) => k + 1)
-  }
+  useEffect(load, [token, group.id])
 
   return (
     <div className="group-detail">
       <h2>{group.name}</h2>
       <p className="muted">members: {group.members.map((m) => m.username).join(', ')}</p>
 
-      <AddExpense token={token} group={group} onAdded={refresh} />
+      <AddExpense token={token} group={group} onAdded={load} />
 
       <h3>Expenses</h3>
       <ul className="expenses">
         {expenses.map((e) => (
           <li key={e.id}>
-            {e.description} — ${e.amount} (paid by {group.members.find((m) => m.id === e.paid_by)?.username})
+            {e.description} — ${e.amount} (paid by {e.paidBy.username})
           </li>
         ))}
       </ul>
 
-      <Balances token={token} group={group} refreshKey={refreshKey} />
+      <Balances token={token} group={group} transactions={balances} onSettled={load} />
+      {error && <p className="error">{error}</p>}
     </div>
   )
 }
