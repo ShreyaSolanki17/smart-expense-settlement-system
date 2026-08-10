@@ -3,6 +3,7 @@ import logging
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 
+from config.rate_limiting import rate_limit
 from notifications.tasks import notify_members
 from settlements.services import invalidate_balances_cache
 
@@ -21,6 +22,12 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Expense.objects.none()
         return Expense.objects.filter(group__members=self.request.user).distinct()
+
+    # ponytail: 20/min is a placeholder ceiling well above real usage,
+    # tune down once actual traffic patterns are known.
+    @rate_limit(limit=20, window=60)
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         expense = serializer.save()
