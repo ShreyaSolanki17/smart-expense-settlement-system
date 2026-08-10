@@ -160,7 +160,13 @@ function AddExpense({ token, group, onAdded }) {
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [paidBy, setPaidBy] = useState(group.members[0]?.id ?? '')
+  const [customSplit, setCustomSplit] = useState(false)
+  const [shares, setShares] = useState({})
   const [error, setError] = useState('')
+
+  function setShare(userId, value) {
+    setShares({ ...shares, [userId]: value })
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -171,9 +177,13 @@ function AddExpense({ token, group, onAdded }) {
         description,
         amount,
         paid_by: paidBy,
+        splits: customSplit
+          ? group.members.map((m) => ({ user: m.id, share_amount: shares[m.id] || '0' }))
+          : undefined,
       })
       setDescription('')
       setAmount('')
+      setShares({})
       onAdded()
     } catch (err) {
       setError(err.message)
@@ -202,8 +212,29 @@ function AddExpense({ token, group, onAdded }) {
           </option>
         ))}
       </select>
+      <label className="custom-split-toggle">
+        <input
+          type="checkbox"
+          checked={customSplit}
+          onChange={(e) => setCustomSplit(e.target.checked)}
+        />
+        split by amount
+      </label>
+      {customSplit &&
+        group.members.map((m) => (
+          <input
+            key={m.id}
+            className="split-share"
+            placeholder={m.username}
+            type="number"
+            step="0.01"
+            min="0"
+            value={shares[m.id] ?? ''}
+            onChange={(e) => setShare(m.id, e.target.value)}
+          />
+        ))}
       <button type="submit" disabled={!description.trim() || !amount}>
-        Add expense (splits equally)
+        Add expense {customSplit ? '' : '(splits equally)'}
       </button>
       {error && <p className="error">{error}</p>}
     </form>
