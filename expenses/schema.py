@@ -5,7 +5,6 @@ from graphene_django import DjangoObjectType
 from graphql import GraphQLError
 
 from config.graphql_utils import save_via_serializer
-from groups.models import Group
 from notifications.tasks import notify_members
 from settlements.services import invalidate_balances_cache
 
@@ -46,11 +45,6 @@ class Query(graphene.ObjectType):
         return Expense.objects.filter(group__members=info.context.user, id=id).distinct().first()
 
 
-def _require_membership(user, group_id):
-    if not Group.objects.filter(id=group_id, members=user).exists():
-        raise GraphQLError("Not a member of that group.")
-
-
 def _notify(expense, actor, message):
     try:
         notify_members.delay(expense.group_id, actor.id, message)
@@ -71,7 +65,6 @@ class CreateExpense(graphene.Mutation):
     expense = graphene.Field(ExpenseType)
 
     def mutate(root, info, group, description, amount, paid_by, splits=None):
-        _require_membership(info.context.user, group)
         data = {"group": group, "description": description, "amount": amount, "paid_by": paid_by}
         if splits is not None:
             data["splits"] = [{"user": s.user, "share_amount": s.share_amount} for s in splits]

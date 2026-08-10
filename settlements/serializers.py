@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from groups.permissions import require_group_member
+
 from .models import Settlement
 from .services import compute_balances
 
@@ -17,6 +19,10 @@ class SettlementSerializer(serializers.ModelSerializer):
         to_user = attrs.get("to_user", getattr(self.instance, "to_user", None))
         group = attrs.get("group", getattr(self.instance, "group", None))
         amount = attrs.get("amount", getattr(self.instance, "amount", None))
+
+        request = self.context.get("request")
+        if request is not None:
+            require_group_member(request.user, group)
 
         if from_user == to_user:
             raise serializers.ValidationError("from_user and to_user must be different.")

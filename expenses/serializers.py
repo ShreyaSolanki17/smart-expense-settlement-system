@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from groups.permissions import require_group_member
+
 from .models import Expense, ExpenseSplit
 
 
@@ -23,6 +25,11 @@ class ExpenseSerializer(serializers.ModelSerializer):
         group = attrs.get("group") or getattr(self.instance, "group", None)
         splits = attrs.get("splits")
         amount = attrs.get("amount", getattr(self.instance, "amount", None))
+
+        request = self.context.get("request")
+        if request is not None:
+            require_group_member(request.user, group)
+
         if splits:
             member_ids = set(group.members.values_list("id", flat=True))
             for split in splits:

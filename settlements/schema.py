@@ -2,10 +2,8 @@ import logging
 
 import graphene
 from graphene_django import DjangoObjectType
-from graphql import GraphQLError
 
 from config.graphql_utils import save_via_serializer
-from groups.models import Group
 from notifications.tasks import notify_members
 
 from .models import Settlement
@@ -41,8 +39,6 @@ class CreateSettlement(graphene.Mutation):
     settlement = graphene.Field(SettlementType)
 
     def mutate(root, info, group, from_user, to_user, amount):
-        if not Group.objects.filter(id=group, members=info.context.user).exists():
-            raise GraphQLError("Not a member of that group.")
         data = {"group": group, "from_user": from_user, "to_user": to_user, "amount": amount}
         settlement = save_via_serializer(SettlementSerializer, data, context={"request": info.context})
         invalidate_balances_cache(settlement.group_id)
