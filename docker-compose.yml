@@ -15,6 +15,15 @@ services:
     ports:
       - "6379:6379"
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: money_split
+      RABBITMQ_DEFAULT_PASS: money_split
+    ports:
+      - "5672:5672"   # AMQP (broker traffic)
+      - "15672:15672" # management UI, http://localhost:15672
+
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
@@ -27,9 +36,11 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/money_split
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://money_split:money_split@rabbitmq:5672//
     depends_on:
       - db
       - redis
+      - rabbitmq
 
   worker:
     build: .
@@ -41,9 +52,11 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/money_split
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://money_split:money_split@rabbitmq:5672//
     depends_on:
       - db
       - redis
+      - rabbitmq
 
 volumes:
   postgres_data:

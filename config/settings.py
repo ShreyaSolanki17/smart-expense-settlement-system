@@ -133,9 +133,15 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 # remote origin can spoof a browser into sending Origin: http://localhost:*.
 CORS_ALLOWED_ORIGIN_REGEXES = [r"^http://(localhost|127\.0\.0\.1):\d+$"]
 
+# Redis: cache only now (see RABBITMQ_URL below for the task queue).
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 
-CELERY_BROKER_URL = REDIS_URL
+# RabbitMQ: Celery's broker. Split from Redis so task delivery gets AMQP's
+# guarantees (durable queues, per-message ack, dead-lettering) instead of
+# Redis's at-most-once list-based queue.
+RABBITMQ_URL = env("RABBITMQ_URL", default="amqp://guest:guest@localhost:5672//")
+
+CELERY_BROKER_URL = RABBITMQ_URL
 CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
@@ -144,11 +150,15 @@ CELERY_TIMEZONE = TIME_ZONE
 # retry/timeout loop in the request/response cycle is pure waste.
 # broker_connection_retry stays True (the default) since it also gates the
 # worker's own startup retry — disabling it made the worker give up and
-# exit instead of waiting for Redis to come up.
+# exit instead of waiting for RabbitMQ to come up.
 CELERY_TASK_PUBLISH_RETRY = False
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_TIMEOUT = 1
-CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 1, "socket_timeout": 1}
+# read_timeout/write_timeout are pyamqp's equivalent of the old Redis
+# transport's socket_timeout — the Redis-specific socket_connect_timeout/
+# socket_timeout keys are silently ignored by the amqp transport, so they'd
+# have quietly stopped doing anything if left in place.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"read_timeout": 1, "write_timeout": 1}
 
 CACHES = {
     "default": {
