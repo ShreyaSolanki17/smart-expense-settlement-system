@@ -5,6 +5,7 @@ Django settings for config project.
 from pathlib import Path
 
 import environ
+from kombu import Exchange, Queue
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -159,6 +160,39 @@ CELERY_BROKER_CONNECTION_TIMEOUT = 1
 # socket_timeout keys are silently ignored by the amqp transport, so they'd
 # have quietly stopped doing anything if left in place.
 CELERY_BROKER_TRANSPORT_OPTIONS = {"read_timeout": 1, "write_timeout": 1}
+
+# notify_members is the only task today, but giving it an explicit
+# exchange/queue (instead of Celery's implicit default "celery" queue)
+# gives us a named place to hang per-queue behavior — ack semantics and,
+# below, a dead-letter queue.
+#
+# Direct exchange: a message's routing key must match a bound queue's
+# binding key *exactly* for that queue to get it — simple point-to-point
+# delivery. That's the right fit: one task type, one intended consumer
+# queue. It would be different if this fanned out to independent consumers
+# each wanting their own full copy of the same event (e.g. a separate
+# email service and a separate push service both reacting to "member
+# notified") — that's what a fanout exchange is for, broadcasting to every
+# bound queue regardless of routing key. Or if we had a family of related
+# routing keys consumers subscribe to slices of via wildcards — that's a
+# topic exchange. Neither applies: notify_members has exactly one task
+# type and one consumer (the worker pool), so direct is the simplest thing
+# that's still correct.
+notifications_exchange = Exchange("notifications", type="direct")
+
+CELERY_TASK_QUEUES = (
+    Queue(
+        "notifications",
+        exchange=notifications_exchange,
+        routing_key="notification.notify_members",
+    ),
+)
+CELERY_TASK_ROUTES = {
+    "notifications.tasks.notify_members": {
+        "queue": "notifications",
+        "routing_key": "notification.notify_members",
+    },
+}
 
 CACHES = {
     "default": {
